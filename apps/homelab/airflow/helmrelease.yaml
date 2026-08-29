@@ -1,0 +1,123 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: apache-airflow
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://airflow.apache.org
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: airflow
+  namespace: airflow
+spec:
+  interval: 30m
+  timeout: 15m
+  chart:
+    spec:
+      chart: airflow
+      # Verified against the chart source: 1.22.0 has appVersion 3.2.2,
+      # which is exactly the Airflow your previous install was running.
+      version: "1.22.0"
+      sourceRef:
+        kind: HelmRepository
+        name: apache-airflow
+        namespace: flux-system
+  install:
+    remediation: { retries: 3 }
+  upgrade:
+    remediation: { retries: 3 }
+  # Merged over `values:`. Created by 02-create-secrets.sh, so the admin
+  # password and known_hosts never enter git.
+  valuesFrom:
+    - kind: Secret
+      name: airflow-extra-values
+      valuesKey: values.yaml
+      optional: false
+  values:
+    airflowVersion: "3.2.2"
+    executor: "KubernetesExecutor"
+
+    createUserJob:
+      defaultUser:
+        enabled: true
+        role: "Admin"
+        username: "admin"
+        email: "admin@example.com"
+        firstName: "Admin"
+        lastName: "User"
+        # `password` is a literal in this chart -- there is no
+        # passwordSecretName. Supplied via valuesFrom above.
+
+    # Airflow 3 renamed the webserver to the API server; your old install's
+    # Service was `airflow-api-server`. Chart 1.22.0 still ships a
+    # `webserver:` block for Airflow 2, so setting that instead would be
+    # silently ignored on 3.x.
+    apiServer:
+      replicas: 1
+      resources:
+        requests: { cpu: "100m", memory: "256Mi" }
+        limits: { cpu: "500m", memory: "512Mi" }
+
+    scheduler:
+      replicas: 1
+      resources:
+        requests: { cpu: "250m", memory: "512Mi" }
+        limits: { cpu: "1000m", memory: "1024Mi" }
+
+    triggerer:
+      enabled: true
+      replicas: 1
+      resources:
+        requests: { cpu: "100m", memory: "256Mi" }
+        limits: { cpu: "500m", memory: "512Mi" }
+
+    postgresql:
+      enabled: true
+      persistence:
+        enabled: true
+        size: 10Gi
+
+    # gitSync into a per-pod emptyDir. Your DAGs are already in git, so a
+    # shared PVC bought nothing and added a single-attach bottleneck.
+    dags:
+      persistence:
+        enabled: false
+      gitSync:
+        enabled: true
+        repo: "git@github.com:snskarora/airflow_homeserver_dags.git"
+        branch: "main"
+        subPath: "dags"
+        # Secret key inside must be `gitSshKey` -- confirmed in the chart's
+        # git-ssh-key-secret template. 02-create-secrets.sh uses that name.
+        sshKeySecret: "airflow-git-ssh-key-secret"
+        # `knownHosts` is a VALUES STRING, not a secret reference. It comes
+        # in through airflow-extra-values. Without it git-sync fails host
+        # key verification.
+        # `wait` was replaced by `period` (Go duration) in recent charts.
+        period: "12s"
+
+    config:
+      dag_processor:
+        dag_dir_list_interval: "12"
+
+    # NOTE: logs.persistence has NO accessMode field. The chart's PVC
+    # template hardcodes accessModes: ["ReadWriteMany"], which is what a
+    # multi-node cluster needs anyway -- the scheduler, api-server and
+    # triggerer all mount it at once. Longhorn serves RWX through a
+    # share-manager pod, which needs nfs-common (installed by script 00).
+    logs:
+      persistence:
+        enabled: true
+        size: 5Gi
+
+    # Airflow 3 signs JWTs; `webserverSecretKeySecretName` is the Airflow <3
+    # path and would be ignored here. The secret's key must be `jwt-secret`.
+    jwtSecretName: "airflow-jwt-secret"
+
+    statsd: { enabled: false }
+    redis: { enabled: false }
+    flower: { enabled: false }

@@ -1,0 +1,40 @@
+---
+# Layer 1: the controllers themselves (Longhorn, Envoy Gateway).
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-controllers
+  namespace: flux-system
+spec:
+  interval: 30m
+  retryInterval: 1m
+  timeout: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./infrastructure/controllers
+  prune: true
+  wait: true
+---
+# Layer 2: things that need those controllers' CRDs to exist first.
+# `dependsOn` is what stops Flux racing ahead and failing on a
+# GatewayClass whose CRD hasn't been installed yet.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-configs
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: infra-controllers
+  interval: 30m
+  retryInterval: 1m
+  # 5m was tight: the Gateway isn't Ready until Envoy Gateway has actually
+  # scheduled a data-plane pod, and first image pull is slow over Wi-Fi.
+  timeout: 10m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./infrastructure/configs
+  prune: true
+  wait: true
