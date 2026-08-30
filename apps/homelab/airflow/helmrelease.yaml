@@ -42,6 +42,8 @@ spec:
     executor: "KubernetesExecutor"
 
     createUserJob:
+      useHelmHooks: false
+      applyCustomEnv: false
       defaultUser:
         enabled: true
         role: "Admin"
@@ -121,3 +123,8 @@ spec:
     statsd: { enabled: false }
     redis: { enabled: false }
     flower: { enabled: false }
+
+    migrateDatabaseJob:
+      enabled: true
+      useHelmHooks: false
+      applyCustomEnv: false
