@@ -1,0 +1,70 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: local-path-reaper
+  namespace: local-path-storage
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: local-path-reaper
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: local-path-reaper
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: local-path-reaper
+subjects:
+  - kind: ServiceAccount
+    name: local-path-reaper
+    namespace: local-path-storage
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: local-path-reaper
+  namespace: local-path-storage
+spec:
+  schedule: "0 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: local-path-reaper
+          restartPolicy: Never
+          containers:
+            - name: reaper
+              image: docker.io/alpine/kubectl:1.35.4@sha256:9ccd823647622b620dce092d0f1406b8b41d152ce08ac963e3d4683770b14dfd
+              env:
+                - name: RETAIN_SECONDS
+                  value: "259200"
+                - name: STORAGE_CLASS
+                  value: local-path
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -euo pipefail
+                  cutoff=$(date -u -d "@$(( $(date +%s) - RETAIN_SECONDS ))" +%Y%m%d%H%M%S)
+                  kubectl get pv -o jsonpath='{range .items[*]}{.metadata.name} {.status.phase} {.spec.storageClassName} {.status.lastPhaseTransitionTime}{"\n"}{end}' |
+                  while read -r name phase sc released; do
+                    [ "$phase" = Released ] && [ "$sc" = "$STORAGE_CLASS" ] && [ -n "$released" ] || continue
+                    if [ "$(echo "$released" | tr -dc 0-9)" -lt "$cutoff" ]; then
+                      echo "reaping $name (released $released)"
+                      kubectl patch pv "$name" -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}'
+                    fi
+                  done
+              resources:
+                requests: { cpu: 10m, memory: 32Mi }
+                limits: { cpu: 200m, memory: 128Mi }

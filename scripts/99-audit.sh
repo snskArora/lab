@@ -110,15 +110,24 @@ c("EnvoyProxy patch port != Gateway listener port",
 c("HTTPRoute parentRef namespace != Gateway namespace",
   rt['spec']['parentRefs'][0]['namespace']==gw['metadata']['namespace'])
 
-# longhorn / airflow consistency
-lh=[d for d in docs['infrastructure/controllers/longhorn.yaml'] if d.get('kind')=='HelmRelease'][0]['spec']['values']
-sc=[d for d in docs['infrastructure/configs/longhorn-storageclasses.yaml'] if d.get('kind')=='StorageClass'][0]
-c("kubeletRootDir is not the MicroK8s snap path",
-  lh['csi']['kubeletRootDir']=='/var/snap/microk8s/common/var/lib/kubelet')
-c("longhorn-r2 replica count != defaultReplicaCount",
-  sc['parameters']['numberOfReplicas']==str(lh['defaultSettings']['defaultReplicaCount']))
-c("chart reclaimPolicy is not Retain", lh['persistence']['reclaimPolicy']=='Retain')
-c("longhorn-r2 reclaimPolicy is not Retain", sc['reclaimPolicy']=='Retain')
+# local-path storage
+lp=docs['infrastructure/controllers/local-path.yaml']
+lpg=[d for d in lp if d.get('kind')=='GitRepository'][0]
+lpk=[d for d in lp if d.get('kind')=='Kustomization'][0]
+c("local-path GitRepository must pin a tag", 'tag' in lpg['spec']['ref'])
+c("local-path Kustomization sourceRef does not match its GitRepository",
+  lpk['spec']['sourceRef']['name']==lpg['metadata']['name'])
+scp=[yaml.safe_load(p['patch']) for p in lpk['spec'].get('patches',[])
+     if p.get('target',{}).get('kind')=='StorageClass']
+c("local-path StorageClass is not patched to Retain",
+  any(p.get('reclaimPolicy')=='Retain' for p in scp))
+c("local-path StorageClass is not patched to be the default class",
+  any(p.get('metadata',{}).get('annotations',{}).get('storageclass.kubernetes.io/is-default-class')=='true' for p in scp))
+rp=[d for d in docs['infrastructure/configs/local-path-reaper.yaml'] if d.get('kind')=='CronJob'][0]
+rpc=rp['spec']['jobTemplate']['spec']['template']['spec']['containers'][0]
+rpe={e['name']:e['value'] for e in rpc.get('env',[])}
+c("reaper STORAGE_CLASS does not match the local-path class", rpe.get('STORAGE_CLASS')=='local-path')
+c("reaper image must be pinned by digest", '@sha256:' in rpc['image'])
 
 af=[d for d in docs['apps/homelab/airflow/helmrelease.yaml'] if d.get('kind')=='HelmRelease'][0]
 # The chart hardcodes ReadWriteMany for the logs PVC and has no accessMode

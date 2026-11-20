@@ -1,25 +1,11 @@
 #!/usr/bin/env bash
-# Run on BOTH msi and dell, before Flux installs Longhorn.
-# Longhorn fails to attach volumes without these, usually silently.
+# Run on BOTH msi and dell.
 set -euo pipefail
 [[ $EUID -eq 0 ]] && { echo "Run as your normal user; it will sudo where needed." >&2; exit 1; }
 
-echo "==> Longhorn host dependencies"
+echo "==> Packages"
 sudo apt-get update
-sudo apt-get install -y open-iscsi nfs-common cryptsetup dmsetup util-linux iw
-
-echo "==> Enabling iscsid"
-sudo systemctl enable --now iscsid
-
-echo "==> Kernel modules"
-for m in iscsi_tcp dm_crypt nfs; do
-  sudo modprobe "$m" 2>/dev/null || echo "    WARN: could not load $m"
-done
-printf 'iscsi_tcp\ndm_crypt\nnfs\n' | sudo tee /etc/modules-load.d/longhorn.conf >/dev/null
-
-echo "==> Longhorn data path"
-sudo mkdir -p /var/lib/longhorn
-sudo chmod 700 /var/lib/longhorn
+sudo apt-get install -y iw
 
 # --- FIX: `iw set power_save off` is RUNTIME ONLY. It silently reverts on
 # --- every reboot, which is exactly when you stop watching. Persist it
@@ -50,8 +36,6 @@ done
 
 echo
 echo "==> Verify"
-systemctl is-active --quiet iscsid && echo "    iscsid: active" || echo "    iscsid: NOT ACTIVE"
-lsmod | grep -q iscsi_tcp && echo "    iscsi_tcp: loaded" || echo "    iscsi_tcp: MISSING"
 for P in /sys/class/net/wl*; do
   [[ -e "$P" ]] || continue
   IFACE=$(basename "$P")
