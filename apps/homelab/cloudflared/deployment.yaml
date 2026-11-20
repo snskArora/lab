@@ -7,6 +7,11 @@ spec:
   # 2 replicas = tunnel survives one node going down; they load-balance
   # natively across their own edge connections.
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: cloudflared
@@ -17,18 +22,14 @@ spec:
     spec:
       affinity:
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                topologyKey: kubernetes.io/hostname
-                labelSelector:
-                  matchLabels:
-                    app: cloudflared
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app: cloudflared
       containers:
         - name: cloudflared
-          # Pin to the current tag from
-          # https://hub.docker.com/r/cloudflare/cloudflared/tags
-          image: cloudflare/cloudflared:latest
+          image: cloudflare/cloudflared:2026.11.1@sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d
           # Remotely-managed tunnel: cloudflared reads TUNNEL_TOKEN from the
           # environment; hostname -> service routing lives in the Cloudflare
           # dashboard, not in this repo.
