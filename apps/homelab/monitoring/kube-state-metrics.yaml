@@ -26,6 +26,17 @@ spec:
         memory: 32Mi
       limits:
         memory: 128Mi
+    # kube_<kind>_labels series exist only for allowlisted kinds; the Kubernetes views dashboards count
+    # resources with them and CloudNativePG's dashboard joins on kube_node_labels.
+    metricLabelsAllowlist:
+      - namespaces=[*]
+      - nodes=[*]
+      - deployments=[app.kubernetes.io/name]
+      - statefulsets=[app.kubernetes.io/name]
+      - daemonsets=[app.kubernetes.io/name]
+      - networkpolicies=[*]
+      - ingresses=[*]
+      - horizontalpodautoscalers=[*]
     # Flux object state (Ready, suspended, revision), adapted from fluxcd/flux2-monitoring-example:
     # standard collectors stay on, image-automation kinds dropped (not installed).
     rbac:

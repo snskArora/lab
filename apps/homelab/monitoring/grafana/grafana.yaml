@@ -1,0 +1,109 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  interval: 30m
+  timeout: 10m
+  chart:
+    spec:
+      chart: grafana
+      version: "14.6.1"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana-community
+        namespace: flux-system
+  install:
+    remediation: { retries: 3 }
+  values:
+    image:
+      sha: "d9425e704fa9dff189966b827fbc9b63befc5b443999c7b82193f1b1a73c74f7"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 192Mi
+      limits:
+        memory: 768Mi
+    podAnnotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "3000"
+    # Helm test pod (unpinned bats image); Flux does not run Helm tests.
+    testFramework:
+      enabled: false
+
+    # Secrets come from scripts/09-grafana-secrets.sh (passwords.json is the record).
+    admin:
+      existingSecret: grafana-admin
+    envFromSecrets:
+      - name: grafana-db
+
+    route:
+      main:
+        enabled: true
+        hostnames:
+          - grafana.lab.sanskararora.in
+        parentRefs:
+          - name: envoy-homelab-gateway
+            namespace: envoy-gateway-system
+
+    grafana.ini:
+      server:
+        root_url: https://grafana.lab.sanskararora.in
+      # State lives in the CNPG database `grafana`; the password arrives as GF_DATABASE_PASSWORD.
+      database:
+        type: postgres
+        host: pg-rw.databases.svc:5432
+        name: grafana
+        user: grafana
+        ssl_mode: require
+      security:
+        cookie_secure: true
+        disable_gravatar: true
+      users:
+        allow_sign_up: false
+      analytics:
+        check_for_updates: false
+        check_for_plugin_updates: false
+        reporting_enabled: false
+      dashboards:
+        default_home_dashboard_path: /tmp/dashboards/Homelab/homelab-kubernetes.json
+
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+          - name: VictoriaMetrics
+            uid: victoriametrics
+            type: prometheus
+            access: proxy
+            url: http://victoria-metrics.monitoring.svc:8428
+            isDefault: true
+            editable: false
+            jsonData:
+              timeInterval: 30s
+
+    # Dashboards from git: ConfigMaps labelled grafana_dashboard=1 in this namespace, folder taken from
+    # the grafana_folder annotation (see ./kustomization.yaml). UI saves are blocked; edit the JSON in git.
+    rbac:
+      namespaced: true
+    sidecar:
+      image:
+        sha: "52d311dcedd587421a236c4d6c621f05614c40a51386e955e0699dca97ec0880"
+      resources:
+        requests:
+          cpu: 10m
+          memory: 48Mi
+        limits:
+          memory: 128Mi
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        labelValue: "1"
+        resource: configmap
+        folderAnnotation: grafana_folder
+        provider:
+          foldersFromFilesStructure: true
+          allowUiUpdates: false
+          disableDelete: false
