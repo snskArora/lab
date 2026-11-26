@@ -40,4 +40,28 @@ spec:
       podAnnotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9428"
-      # No route: no login, and logs can carry tokens. Search it through Grafana or kubectl port-forward.
+      # LAN only (*.lab), no login yet. Only the UI and the read API (/select) are routed; inserts and
+      # admin endpoints stay in-cluster. / redirects to the UI.
+      route:
+        enabled: true
+        parentRefs:
+          - name: envoy-homelab-gateway
+            namespace: envoy-gateway-system
+        hostnames:
+          - logs.lab.sanskararora.in
+        matches:
+          - path:
+              type: PathPrefix
+              value: /select
+        extraRules:
+          - matches:
+              - path:
+                  type: Exact
+                  value: /
+            filters:
+              - type: RequestRedirect
+                requestRedirect:
+                  path:
+                    type: ReplaceFullPath
+                    replaceFullPath: /select/vmui/
+                  statusCode: 302

@@ -15,7 +15,7 @@ Metrics, logs and dashboards for the lab, all in namespace `monitoring` and depl
 
 - Grafana: https://grafana.lab.sanskararora.in (user `admin`, password in `passwords.json` under `grafana`)
 - vmui and the VictoriaMetrics API: https://metrics.lab.sanskararora.in, or http://metrics.sunny on devices with the `.sunny` DNS setup. No login yet.
-- VictoriaLogs has no route (no login, and logs can carry tokens). Search through Grafana, or `kubectl -n monitoring port-forward svc/victoria-logs 9428` and open http://localhost:9428/select/vmui.
+- VictoriaLogs UI: https://logs.lab.sanskararora.in (opens the log explorer at `/select/vmui/`). No login yet. Only the UI and the query API (`/select/...`) are routed, so nothing can be written or deleted through it.
 
 ## Getting an app scraped
 
@@ -94,6 +94,6 @@ Datasources: `${datasource}` or the uid `victoriametrics` for metrics, the uid `
 ## Known gaps
 
 - Persistent volume usage panels stay empty: local-path volumes are host directories, which kubelet does not report. Use the `/var/lib/local-path` filesystem panels instead.
-- vmui has no login until the Envoy Gateway SecurityPolicy phase.
+- vmui and the VictoriaLogs UI have no login until the Envoy Gateway SecurityPolicy phase. Anyone on the LAN can read metrics and logs.
 - No alerting yet, and no log backups (VictoriaLogs keeps 14 days).
 - The Logs board's "error-looking lines" are a heuristic (level field, klog `E` lines, the words error/fatal/panic).
