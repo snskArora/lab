@@ -59,8 +59,8 @@ spec:
                 - targets: ["localhost:8428"]
 
             # On msi, MicroK8s' kubelite serves API server, etcd and scheduler metrics on the kubelet
-            # endpoint too. The kubelet job drops those families and the apiserver job keeps only them,
-            # so every series is stored once.
+            # endpoint too. The kubelet job drops those families on msi only and the apiserver job keeps
+            # only them, so every series is stored once. dell's few families of these names are its own.
             - job_name: kubelet
               scheme: https
               bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
@@ -72,9 +72,8 @@ spec:
                 - source_labels: [__meta_kubernetes_node_name]
                   target_label: node
               metric_relabel_configs:
-                - source_labels: [__name__]
-                  regex: (apiserver|etcd|scheduler)_.+
-                  action: drop
+                - action: drop
+                  if: '{__name__=~"(apiserver|etcd|scheduler)_.+", node="msi"}'
 
             - job_name: cadvisor
               scheme: https
@@ -147,6 +146,19 @@ spec:
                   target_label: pod
                 - source_labels: [__meta_kubernetes_pod_node_name]
                   target_label: node
+
+            # kube-state-metrics reports about other objects, so its namespace/pod/node/container labels must
+            # win over the target's (honor_labels). Not annotated, so the annotated-pods job skips it.
+            - job_name: kube-state-metrics
+              honor_labels: true
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    names: [monitoring]
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name, __meta_kubernetes_pod_container_port_name]
+                  regex: kube-state-metrics;http
+                  action: keep
 
             # The lab convention: any pod with prometheus.io/scrape="true" and prometheus.io/port matching a
             # declared containerPort (optional prometheus.io/path). Plain HTTP only.
