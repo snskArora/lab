@@ -66,6 +66,9 @@ spec:
     services:
       additional:
         - selectorType: rw
+          # On any difference CNPG deletes and recreates the Service from this template (seconds of outage),
+          # so live fields like an old NodePort can't linger. The default, patch, keeps them.
+          updateStrategy: replace
           serviceTemplate:
             metadata:
               name: pg-lan
