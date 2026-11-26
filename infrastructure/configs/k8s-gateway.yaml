@@ -62,7 +62,7 @@ spec:
           - name: k8s_gateway
             parameters: sunny
             configBlock: |-
-              apex dns.sunny
+              apex dns
               ttl 30
               resources Service HTTPRoute
               loadBalancerAddressPreference ip
