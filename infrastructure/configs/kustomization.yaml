@@ -3,3 +3,5 @@ kind: Kustomization
 resources:
   - envoy-gateway-setup.yaml
   - local-path-reaper.yaml
+  - metallb-pool.yaml
+  - k8s-gateway.yaml
