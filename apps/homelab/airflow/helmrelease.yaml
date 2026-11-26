@@ -19,8 +19,6 @@ spec:
   chart:
     spec:
       chart: airflow
-      # Verified against the chart source: 1.22.0 has appVersion 3.2.2,
-      # which is exactly the Airflow your previous install was running.
       version: "1.22.0"
       sourceRef:
         kind: HelmRepository
@@ -30,8 +28,7 @@ spec:
     remediation: { retries: 3 }
   upgrade:
     remediation: { retries: 3 }
-  # Merged over `values:`. Created by 02-create-secrets.sh, so the admin
-  # password and known_hosts never enter git.
+  # Admin password, merged over `values:`; created by scripts/12-airflow-secrets.sh.
   valuesFrom:
     - kind: Secret
       name: airflow-extra-values
@@ -39,92 +36,119 @@ spec:
       optional: false
   values:
     airflowVersion: "3.2.2"
-    executor: "KubernetesExecutor"
+    images:
+      airflow:
+        repository: apache/airflow
+        tag: "3.2.2"
+        digest: "sha256:bef4d135ec7b64658cf64089973edd62cab8fd72203f280c7e0952213c17d912"
+      statsd:
+        tag: "v0.30.0@sha256:aa922156ccf915a0d033eef013d0621d5dcf10c69bd89107c2d49e8184a84268"
+      gitSync:
+        tag: "v4.4.2@sha256:bb0aba8bf9e49571687886594c46eb5a4084061370bff2ac6b94701f5d202674"
 
+    # Tasks run inside the scheduler pod. Every task log line also goes to the scheduler's stdout,
+    # which Fluent Bit ships to VictoriaLogs.
+    executor: LocalExecutor
+    nodeSelector:
+      kubernetes.io/hostname: msi
+
+    # Metadata DB: CNPG database `airflow`, tables in schema `airflow` (the role's default search_path).
+    postgresql:
+      enabled: false
+    data:
+      metadataSecretName: airflow-metadata
+    fernetKeySecretName: airflow-fernet-key
+    apiSecretKeySecretName: airflow-api-secret-key
+    jwtSecretName: airflow-jwt-secret
+
+    # Plain Jobs instead of Helm hooks, as the chart recommends for Flux.
+    migrateDatabaseJob:
+      useHelmHooks: false
+      applyCustomEnv: false
     createUserJob:
       useHelmHooks: false
       applyCustomEnv: false
       defaultUser:
-        enabled: true
-        role: "Admin"
-        username: "admin"
-        email: "admin@example.com"
-        firstName: "Admin"
-        lastName: "User"
-        # `password` is a literal in this chart -- there is no
-        # passwordSecretName. Supplied via valuesFrom above.
+        role: Admin
+        username: admin
+        email: admin@example.com
+        firstName: Admin
+        lastName: User
 
-    # Airflow 3 renamed the webserver to the API server; your old install's
-    # Service was `airflow-api-server`. Chart 1.22.0 still ships a
-    # `webserver:` block for Airflow 2, so setting that instead would be
-    # silently ignored on 3.x.
-    apiServer:
-      replicas: 1
-      resources:
-        requests: { cpu: "100m", memory: "256Mi" }
-        limits: { cpu: "500m", memory: "512Mi" }
+    config:
+      api:
+        base_url: https://airflow.lab.sanskararora.in
+      # Tasks record the scheduler pod's IP, so the UI can fetch their logs from it (a Deployment pod's
+      # name is not in DNS).
+      core:
+        hostname_callable: airflow.utils.net.get_host_ip_address
 
-    scheduler:
-      replicas: 1
-      resources:
-        requests: { cpu: "250m", memory: "512Mi" }
-        limits: { cpu: "1000m", memory: "1024Mi" }
-
-    triggerer:
-      enabled: true
-      replicas: 1
-      resources:
-        requests: { cpu: "100m", memory: "256Mi" }
-        limits: { cpu: "500m", memory: "512Mi" }
-
-    postgresql:
-      enabled: true
+    # The Airflow UI keeps task logs for 2 hours on the pod's own disk (lost earlier if the pod restarts);
+    # VictoriaLogs keeps them for 14 days.
+    logs:
+      emptyDirConfig:
+        sizeLimit: 256Mi
       persistence:
-        enabled: true
-        size: 10Gi
+        enabled: false
+    workers:
+      persistence:
+        enabled: false
 
-    # gitSync into a per-pod emptyDir. Your DAGs are already in git, so a
-    # shared PVC bought nothing and added a single-attach bottleneck.
     dags:
       persistence:
         enabled: false
       gitSync:
         enabled: true
-        repo: "git@github.com:snskarora/airflow_homeserver_dags.git"
-        branch: "main"
-        subPath: "dags"
-        # Secret key inside must be `gitSshKey` -- confirmed in the chart's
-        # git-ssh-key-secret template. 02-create-secrets.sh uses that name.
-        sshKeySecret: "airflow-git-ssh-key-secret"
-        # `knownHosts` is a VALUES STRING, not a secret reference. It comes
-        # in through airflow-extra-values. Without it git-sync fails host
-        # key verification.
-        # `wait` was replaced by `period` (Go duration) in recent charts.
-        period: "12s"
+        repo: https://github.com/snskArora/airflow_homeserver_dags.git
+        branch: main
+        ref: main
+        rev: HEAD
+        depth: 1
+        subPath: dags
+        period: 60s
+        resources:
+          requests: { cpu: 10m, memory: 32Mi }
+          limits: { memory: 128Mi }
 
-    config:
-      dag_processor:
-        dag_dir_list_interval: "12"
+    apiServer:
+      resources:
+        requests: { cpu: 100m, memory: 384Mi }
+        limits: { memory: 1Gi }
+    scheduler:
+      resources:
+        requests: { cpu: 100m, memory: 384Mi }
+        limits: { memory: 1Gi }
+      logGroomerSidecar:
+        retentionDays: 0
+        retentionMinutes: 120
+        resources:
+          requests: { cpu: 10m, memory: 32Mi }
+          limits: { memory: 128Mi }
+    dagProcessor:
+      resources:
+        requests: { cpu: 50m, memory: 256Mi }
+        limits: { memory: 768Mi }
+      logGroomerSidecar:
+        retentionDays: 0
+        retentionMinutes: 120
+        resources:
+          requests: { cpu: 10m, memory: 32Mi }
+          limits: { memory: 128Mi }
+    # Only needed for deferrable tasks; none of the DAGs use them.
+    triggerer:
+      enabled: false
 
-    # NOTE: logs.persistence has NO accessMode field. The chart's PVC
-    # template hardcodes accessModes: ["ReadWriteMany"], which is what a
-    # multi-node cluster needs anyway -- the scheduler, api-server and
-    # triggerer all mount it at once. Longhorn serves RWX through a
-    # share-manager pod, which needs nfs-common (installed by script 00).
-    logs:
-      persistence:
-        enabled: true
-        size: 5Gi
-
-    # Airflow 3 signs JWTs; `webserverSecretKeySecretName` is the Airflow <3
-    # path and would be ignored here. The secret's key must be `jwt-secret`.
-    jwtSecretName: "airflow-jwt-secret"
-
-    statsd: { enabled: false }
-    redis: { enabled: false }
-    flower: { enabled: false }
-
-    migrateDatabaseJob:
+    statsd:
       enabled: true
-      useHelmHooks: false
-      applyCustomEnv: false
+      podAnnotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9102"
+      resources:
+        requests: { cpu: 10m, memory: 32Mi }
+        limits: { memory: 64Mi }
+    redis:
+      enabled: false
+    pgbouncer:
+      enabled: false
+    flower:
+      enabled: false

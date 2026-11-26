@@ -93,7 +93,11 @@ cat <<'NEXT'
     does not exist yet and leaves the release stuck needing a manual
     `flux reconcile --force`.
 
-  1. ./scripts/02-create-secrets.sh          # msi -- FIRST
+  1. Secrets, from the repo with passwords.json (sunny) -- FIRST:
+       ./scripts/07-postgres-secrets.sh
+       ./scripts/08-cloudflare-dns-token.sh
+       ./scripts/09-grafana-secrets.sh
+       ./scripts/12-airflow-secrets.sh
 
   2. Push this repo, then:
        export GITHUB_TOKEN=<pat>

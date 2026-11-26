@@ -1,15 +1,14 @@
-# No hostnames block: Gateway API's Hostname type excludes numeric IPs,
-# so omitting it matches any Host header and browsing by raw LAN IP works.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: airflow-route
+  name: airflow
   namespace: airflow
 spec:
   parentRefs:
     - name: envoy-homelab-gateway
       namespace: envoy-gateway-system
-      sectionName: http
+  hostnames:
+    - airflow.lab.sanskararora.in
   rules:
     - matches:
         - path:
