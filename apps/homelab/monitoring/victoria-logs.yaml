@@ -1,0 +1,43 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: victoria-logs
+  namespace: monitoring
+spec:
+  interval: 30m
+  timeout: 10m
+  chart:
+    spec:
+      chart: victoria-logs-single
+      version: "0.13.13"
+      sourceRef:
+        kind: HelmRepository
+        name: victoria-metrics
+        namespace: flux-system
+  install:
+    remediation: { retries: 3 }
+  values:
+    server:
+      fullnameOverride: victoria-logs
+      image:
+        tag: "v1.54.0@sha256:ee4e820cac3721f5f5d91641b950c22439593adc4224f9655e5333d5a84c1dfe"
+      # 14 days, and never more than 10 GiB: the oldest days go first. The cap is checked periodically,
+      # so the volume is larger than the cap.
+      retentionPeriod: 14d
+      retentionDiskSpaceUsage: 10
+      nodeSelector:
+        kubernetes.io/hostname: msi
+      persistentVolume:
+        enabled: true
+        size: 15Gi
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          memory: 1Gi
+      podAnnotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9428"
+      # No route: no login, and logs can carry tokens. Search it through Grafana or kubectl port-forward.

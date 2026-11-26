@@ -6,4 +6,6 @@ resources:
   - victoria-metrics.yaml
   - node-exporter.yaml
   - kube-state-metrics.yaml
+  - victoria-logs.yaml
+  - fluent-bit.yaml
   - grafana
