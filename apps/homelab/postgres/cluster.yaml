@@ -6,6 +6,14 @@ metadata:
   namespace: databases
 spec:
   instances: 2
+
+  # Scrape annotations for the Postgres exporter (port 9187). Also lands on the Services/PVCs CNPG
+  # creates, which is harmless: only pods are scraped by annotation.
+  inheritedMetadata:
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9187"
+
   imageName: ghcr.io/cloudnative-pg/postgresql:18.7-minimal-trixie@sha256:c8caac9817d2b5e5e66297a3ccf86d9fcbd68f097aa6cc00161d83f9635e88cc
 
   # One instance per node, never two on the same node.
@@ -66,10 +74,15 @@ spec:
                 coredns.io/hostname: postgres.sunny
             spec:
               type: LoadBalancer
+              # No NodePort: it would bypass loadBalancerSourceRanges. MetalLB L2 doesn't need one.
+              allocateLoadBalancerNodePorts: false
               loadBalancerSourceRanges:
                 - 192.168.0.0/24
                 - 10.10.0.0/16
 ---
+# Each application the user develops (and Airflow) gets its own schema named after its role, owned by that role. Postgres' default
+# search_path ("$user", public) puts the app's tables there without any app config, and no other
+# role can use the schema unless granted.
 apiVersion: postgresql.cnpg.io/v1
 kind: Database
 metadata:
@@ -80,3 +93,6 @@ spec:
     name: pg
   name: airflow
   owner: airflow
+  schemas:
+    - name: airflow
+      owner: airflow
