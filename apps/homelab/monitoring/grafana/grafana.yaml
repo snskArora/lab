@@ -70,10 +70,18 @@ spec:
       dashboards:
         default_home_dashboard_path: /tmp/dashboards/Homelab/homelab-kubernetes.json
 
+    plugins:
+      - victoriametrics-logs-datasource@0.34.0
     datasources:
       datasources.yaml:
         apiVersion: 1
         datasources:
+          - name: VictoriaLogs
+            uid: victorialogs
+            type: victoriametrics-logs-datasource
+            access: proxy
+            url: http://victoria-logs.monitoring.svc:9428
+            editable: false
           - name: VictoriaMetrics
             uid: victoriametrics
             type: prometheus
