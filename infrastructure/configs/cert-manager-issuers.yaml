@@ -1,0 +1,56 @@
+# Let's Encrypt via DNS-01: cert-manager writes a TXT record through the Cloudflare API (token from
+# scripts/08-cloudflare-dns-token.sh), so nothing in the lab has to be reachable from the internet.
+# No account email: Let's Encrypt no longer sends expiry mail, and renewal is automatic.
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-staging-account
+    solvers:
+      - selector:
+          dnsZones: [sanskararora.in]
+        dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-prod-account
+    solvers:
+      - selector:
+          dnsZones: [sanskararora.in]
+        dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+---
+# One wildcard for every *.lab.sanskararora.in app: the public certificate logs show only "*.lab".
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: lab-wildcard
+  namespace: envoy-gateway-system
+spec:
+  secretName: lab-wildcard-tls
+  dnsNames:
+    - "*.lab.sanskararora.in"
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-staging
+  privateKey:
+    algorithm: ECDSA
+    size: 256

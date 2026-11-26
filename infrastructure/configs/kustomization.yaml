@@ -5,3 +5,4 @@ resources:
   - local-path-reaper.yaml
   - metallb-pool.yaml
   - k8s-gateway.yaml
+  - cert-manager-issuers.yaml

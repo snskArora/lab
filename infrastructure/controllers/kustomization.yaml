@@ -5,3 +5,4 @@ resources:
   - envoy-gateway.yaml
   - metallb.yaml
   - cnpg.yaml
+  - cert-manager.yaml
