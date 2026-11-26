@@ -36,6 +36,15 @@ spec:
       tag: "1.30.2@sha256:f96f6be3d81ec93819b443c665c575c609342fca840df90d4d87dae314a5b913"
     # One operator per node; they elect a leader, the other waits.
     replicaCount: 2
+    # With required anti-affinity on 2 nodes a surge pod can never schedule, so replace one pod at a time.
+    updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 0
+        maxUnavailable: 1
+    podAnnotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8080"
     affinity:
       podAntiAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:

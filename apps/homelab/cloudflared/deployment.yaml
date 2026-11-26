@@ -19,6 +19,9 @@ spec:
     metadata:
       labels:
         app: cloudflared
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "2000"
     spec:
       affinity:
         podAntiAffinity:
@@ -39,6 +42,9 @@ spec:
             - --metrics
             - 0.0.0.0:2000
             - run
+          ports:
+            - name: metrics
+              containerPort: 2000
           env:
             - name: TUNNEL_TOKEN
               valueFrom:
