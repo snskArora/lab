@@ -31,6 +31,7 @@ SOURCES = [
     ("platform", "envoy-clusters.json", f"{GH}/envoyproxy/gateway/v1.9.1/charts/gateway-addons-helm/dashboards/envoy-clusters.json", "896e598739c562e8221bb5a7fe660a94a62e9d68c02acfb4381491dd453110be"),
     ("data", "cloudnative-pg.json", f"{GH}/cloudnative-pg/grafana-dashboards/cluster-v0.0.5/charts/cluster/grafana-dashboard.json", "676b10ae3a8850108d484e4491739207b2ad1ebca44300472168d81a8788e4fb"),
     ("data", "victoriametrics.json", f"{GH}/VictoriaMetrics/VictoriaMetrics/v1.157.0/dashboards/victoriametrics.json", "3da52d42d0aabd89d9d92917cff9d965773ae516231c7353d69a560f572f315a"),
+    ("data", "victorialogs.json", f"{GH}/VictoriaMetrics/VictoriaLogs/v1.54.0/dashboards/victorialogs.json", "a55b8f6910d6fd25bc8975980efb27285aaa96e79a4ce3fc24b4dc772917202c"),
 ]
 
 # Defaults for template variables, so the dashboard opens on this lab's objects.
@@ -65,11 +66,30 @@ def fix_strings(obj):
     return obj
 
 
+OUR_DATASOURCES = {"victoriametrics", "victorialogs", "__expr__", "grafana", "-- Grafana --", "-- Mixed --", "-- Dashboard --"}
+
+
+def repoint_datasources(obj, var):
+    """Literal datasource uids from the author's Grafana (e.g. "prometheus") become the dashboard's datasource variable."""
+    if isinstance(obj, dict):
+        ds = obj.get("datasource")
+        if isinstance(ds, dict) and isinstance(ds.get("uid"), str) and not ds["uid"].startswith("$") and ds["uid"] not in OUR_DATASOURCES:
+            ds["uid"] = "${%s}" % var
+        for v in obj.values():
+            repoint_datasources(v, var)
+    elif isinstance(obj, list):
+        for v in obj:
+            repoint_datasources(v, var)
+
+
 def fit(name, d):
     for k in ("__inputs", "__requires", "__elements"):
         d.pop(k, None)
     d["id"] = None
     d = fix_strings(d)
+    ds_vars = [v["name"] for v in d.get("templating", {}).get("list", []) if v.get("type") == "datasource"]
+    if ds_vars:
+        repoint_datasources(d.get("panels", []), ds_vars[0])
     for v in d.get("templating", {}).get("list", []):
         if v.get("type") == "datasource":
             v["current"] = {}
