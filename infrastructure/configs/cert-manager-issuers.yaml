@@ -50,7 +50,7 @@ spec:
     - "*.lab.sanskararora.in"
   issuerRef:
     kind: ClusterIssuer
-    name: letsencrypt-staging
+    name: letsencrypt-prod
   privateKey:
     algorithm: ECDSA
     size: 256
