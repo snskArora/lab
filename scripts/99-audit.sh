@@ -44,7 +44,7 @@ else echo "  skip  kustomize not installed"; fi
 echo "=== [3] semantic cross-reference ==="
 SEM_RC=0
 python3 - <<'PY' || SEM_RC=$?
-import yaml,glob,pathlib,os,sys
+import yaml,glob,pathlib,os,sys,json
 bad=[]
 def c(l,x):
     if not x: bad.append(l)
@@ -123,6 +123,10 @@ c("local-path StorageClass is not patched to Retain",
   any(p.get('reclaimPolicy')=='Retain' for p in scp))
 c("local-path StorageClass is not patched to be the default class",
   any(p.get('metadata',{}).get('annotations',{}).get('storageclass.kubernetes.io/is-default-class')=='true' for p in scp))
+lpc=[json.loads(yaml.safe_load(p['patch'])['data']['config.json']) for p in lpk['spec'].get('patches',[])
+     if p.get('target',{}).get('kind')=='ConfigMap']
+c("local-path data path must be /var/lib/local-path (the LV from scripts/05-host-prep.sh)",
+  any(m['paths']==['/var/lib/local-path'] for cfg in lpc for m in cfg['nodePathMap']))
 rp=[d for d in docs['infrastructure/configs/local-path-reaper.yaml'] if d.get('kind')=='CronJob'][0]
 rpc=rp['spec']['jobTemplate']['spec']['template']['spec']['containers'][0]
 rpe={e['name']:e['value'] for e in rpc.get('env',[])}
