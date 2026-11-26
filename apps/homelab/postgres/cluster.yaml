@@ -1,0 +1,82 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg
+  namespace: databases
+spec:
+  instances: 2
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.7-minimal-trixie@sha256:c8caac9817d2b5e5e66297a3ccf86d9fcbd68f097aa6cc00161d83f9635e88cc
+
+  # One instance per node, never two on the same node.
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: required
+
+  storage:
+    size: 10Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi
+    limits:
+      memory: 1Gi
+
+  postgresql:
+    parameters:
+      shared_buffers: 256MB
+      effective_cache_size: 640MB
+      work_mem: 4MB
+      maintenance_work_mem: 64MB
+      max_connections: "100"
+    # Synchronous while the replica is up; keeps accepting writes when it is down.
+    synchronous:
+      method: any
+      number: 1
+      dataDurability: preferred
+
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: pg-superuser
+
+  bootstrap:
+    initdb:
+      database: grafana
+      owner: grafana
+      secret:
+        name: pg-grafana
+
+  managed:
+    roles:
+      - name: airflow
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-airflow
+    services:
+      additional:
+        - selectorType: rw
+          serviceTemplate:
+            metadata:
+              name: pg-lan
+              annotations:
+                metallb.io/loadBalancerIPs: 10.10.10.3
+                coredns.io/hostname: postgres.sunny
+            spec:
+              type: LoadBalancer
+              loadBalancerSourceRanges:
+                - 192.168.0.0/24
+                - 10.10.0.0/16
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: pg-airflow
+  namespace: databases
+spec:
+  cluster:
+    name: pg
+  name: airflow
+  owner: airflow

@@ -4,3 +4,4 @@ resources:
   - local-path.yaml
   - envoy-gateway.yaml
   - metallb.yaml
+  - cnpg.yaml
