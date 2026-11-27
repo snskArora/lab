@@ -82,6 +82,9 @@ spec:
       # name is not in DNS).
       core:
         hostname_callable: airflow.utils.net.get_host_ip_address
+      # One JSON object per line, so VictoriaLogs gets level, dag_id, task_id, run_id as fields.
+      logging:
+        json_logs: "True"
 
     # The Airflow UI keeps task logs for 2 hours on the pod's own disk (lost earlier if the pod restarts);
     # VictoriaLogs keeps them for 14 days.
@@ -107,23 +110,25 @@ spec:
         subPath: dags
         period: 60s
         resources:
-          requests: { cpu: 10m, memory: 32Mi }
-          limits: { memory: 128Mi }
+          requests: { cpu: 10m, memory: 16Mi }
+          limits: { memory: 64Mi }
 
     apiServer:
       resources:
         requests: { cpu: 100m, memory: 384Mi }
         limits: { memory: 1Gi }
+    # Sized from the first hour (2026-11-27): api-server ~320Mi, scheduler ~410Mi, dag-processor ~180Mi,
+    # git-sync ~5Mi, log groomers ~1Mi, statsd ~10Mi.
     scheduler:
       resources:
-        requests: { cpu: 100m, memory: 384Mi }
+        requests: { cpu: 100m, memory: 512Mi }
         limits: { memory: 1Gi }
       logGroomerSidecar:
         retentionDays: 0
         retentionMinutes: 120
         resources:
-          requests: { cpu: 10m, memory: 32Mi }
-          limits: { memory: 128Mi }
+          requests: { cpu: 10m, memory: 16Mi }
+          limits: { memory: 64Mi }
     dagProcessor:
       resources:
         requests: { cpu: 50m, memory: 256Mi }
@@ -132,8 +137,8 @@ spec:
         retentionDays: 0
         retentionMinutes: 120
         resources:
-          requests: { cpu: 10m, memory: 32Mi }
-          limits: { memory: 128Mi }
+          requests: { cpu: 10m, memory: 16Mi }
+          limits: { memory: 64Mi }
     # Only needed for deferrable tasks; none of the DAGs use them.
     triggerer:
       enabled: false

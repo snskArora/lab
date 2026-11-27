@@ -147,7 +147,7 @@ spec:
                 match: kube.*
                 host: victoria-logs.monitoring.svc.cluster.local
                 port: 9428
-                uri: /insert/jsonline?_stream_fields=kubernetes.namespace_name,kubernetes.pod_name,kubernetes.container_name,kubernetes.host&_msg_field=msg,message,log&_time_field=date&ignore_fields=_p
+                uri: /insert/jsonline?_stream_fields=kubernetes.namespace_name,kubernetes.pod_name,kubernetes.container_name,kubernetes.host&_msg_field=msg,message,log,event&_time_field=date&ignore_fields=_p
                 format: json_lines
                 json_date_key: date
                 json_date_format: iso8601
