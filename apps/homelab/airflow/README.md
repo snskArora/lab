@@ -9,7 +9,7 @@ Apache Airflow 3.2.2 (official chart 1.22.0) in namespace `airflow`, deployed by
 | Database | CNPG cluster `pg`, database `airflow`, role `airflow`; tables live in schema `airflow` (the role's default search path), over TLS |
 | DAGs | git-sync pulls https://github.com/snskArora/airflow_homeserver_dags (branch `main`, folder `dags/`) every 60 s |
 | Task logs | Airflow UI for 2 hours (pod-local disk, capped at 256Mi, gone if the scheduler restarts); VictoriaLogs for 14 days |
-| Metrics | statsd exporter, scraped by VictoriaMetrics |
+| Metrics | statsd exporter, scraped by VictoriaMetrics; Grafana board Homelab / Airflow |
 
 ## Adding or changing a DAG
 
@@ -17,11 +17,14 @@ Push to `main` of the DAG repo. git-sync picks it up within a minute and the dag
 
 ## Task logs in VictoriaLogs
 
-Every task log line is also written to the scheduler's stdout, so it lands in VictoriaLogs with the other pod logs. In Grafana -> Explore -> VictoriaLogs, or https://logs.lab.sanskararora.in:
+Every task log line is also written to the scheduler's stdout, so it lands in VictoriaLogs with the other pod logs. Airflow logs one JSON object per line (`[logging] json_logs`), so `level`, `logger`, `dag_id`, `task_id`, `run_id` and `try_number` are fields. In Grafana -> Explore -> VictoriaLogs, or https://logs.lab.sanskararora.in:
 
 ```
-kubernetes.namespace_name:airflow kubernetes.container_name:scheduler
+kubernetes.namespace_name:airflow dag_id:test_health_check
+kubernetes.namespace_name:airflow level:in(warning,error,critical)
 ```
+
+`kubectl logs` shows the raw JSON lines.
 
 ## Secrets
 

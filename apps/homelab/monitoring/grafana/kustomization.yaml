@@ -14,6 +14,7 @@ configMapGenerator:
       annotations:
         grafana_folder: Homelab
     files:
+      - dashboards/homelab/homelab-airflow.json
       - dashboards/homelab/homelab-data.json
       - dashboards/homelab/homelab-flux.json
       - dashboards/homelab/homelab-kubernetes.json

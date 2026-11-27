@@ -53,7 +53,7 @@ Grafana runs a sidecar that watches ConfigMaps labelled `grafana_dashboard: "1"`
 
 | Folder | Contents |
 |---|---|
-| `homelab/` -> Homelab | The lab's own boards: Kubernetes system (home page), Flux GitOps, Networking and ingress, Data stores, Logs |
+| `homelab/` -> Homelab | The lab's own boards: Kubernetes system (home page), Flux GitOps, Networking and ingress, Data stores, Logs, Airflow |
 | `kubernetes/` -> Kubernetes | dotdc Kubernetes views (global, namespaces, nodes, pods) and CoreDNS |
 | `nodes/` -> Nodes | Node Exporter Full |
 | `platform/` -> Platform | Flux cluster stats and control plane, Envoy Gateway |
