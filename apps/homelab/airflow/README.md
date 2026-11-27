@@ -36,6 +36,5 @@ kubernetes.namespace_name:airflow level:in(warning,error,critical)
 ## Known gaps
 
 - Public through the tunnel with only Airflow's own login (no Cloudflare Access).
-- From outside the LAN, a logged-out visitor on airflow.sanskararora.in is redirected to the `.lab` login page, which only works on the LAN: `[api] base_url` points at the `.lab` name.
 - No triggerer, so deferrable operators and sensors will not run until it is enabled.
 - Stock image only (no extra Python packages).

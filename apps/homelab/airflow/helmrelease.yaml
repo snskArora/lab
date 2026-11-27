@@ -76,8 +76,6 @@ spec:
         lastName: User
 
     config:
-      api:
-        base_url: https://airflow.lab.sanskararora.in
       # Tasks record the scheduler pod's IP, so the UI can fetch their logs from it (a Deployment pod's
       # name is not in DNS).
       core:
