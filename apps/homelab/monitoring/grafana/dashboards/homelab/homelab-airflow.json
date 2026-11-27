@@ -1364,7 +1364,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "kubernetes.namespace_name:airflow (level:in(warning,error,critical) or final_state:failed or Traceback) -\"is deprecated\"",
+          "expr": "kubernetes.namespace_name:airflow (level:in(warning,error,critical) or final_state:failed or Traceback) -\"is deprecated\" -\"use of fork()\" -remote_log_handler_unavailable",
           "queryType": "instant",
           "legendFormat": "",
           "maxLines": 200

@@ -4,7 +4,7 @@ Apache Airflow 3.2.2 (official chart 1.22.0) in namespace `airflow`, deployed by
 
 | Piece | Setup |
 |---|---|
-| UI | https://airflow.lab.sanskararora.in (user `admin`, password in `passwords.json` under `airflow`) |
+| UI | https://airflow.lab.sanskararora.in on the LAN, https://airflow.sanskararora.in from anywhere (Cloudflare tunnel -> `airflow-api-server`). User `admin`, password in `passwords.json` under `airflow` |
 | Executor | LocalExecutor: tasks run inside the scheduler pod. Pods: api-server, scheduler, dag-processor, statsd, all on msi |
 | Database | CNPG cluster `pg`, database `airflow`, role `airflow`; tables live in schema `airflow` (the role's default search path), over TLS |
 | DAGs | git-sync pulls https://github.com/snskArora/airflow_homeserver_dags (branch `main`, folder `dags/`) every 60 s |
@@ -35,6 +35,7 @@ kubernetes.namespace_name:airflow level:in(warning,error,critical)
 
 ## Known gaps
 
-- No login wall beyond Airflow's own login; LAN only.
+- Public through the tunnel with only Airflow's own login (no Cloudflare Access).
+- From outside the LAN, a logged-out visitor on airflow.sanskararora.in is redirected to the `.lab` login page, which only works on the LAN: `[api] base_url` points at the `.lab` name.
 - No triggerer, so deferrable operators and sensors will not run until it is enabled.
 - Stock image only (no extra Python packages).

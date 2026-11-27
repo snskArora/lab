@@ -42,5 +42,5 @@ dashboard.stat("Container restarts (24h)", 'sum(increase(kube_pod_container_stat
 dashboard.row("Logs")
 dashboard.logs_ts("Log lines per container", "kubernetes.namespace_name:airflow | stats by (kubernetes.container_name) count() lines", "{{kubernetes.container_name}}", w=24, h=6)
 dashboard.logs("Warnings, errors and failed tasks",
-               'kubernetes.namespace_name:airflow (level:in(warning,error,critical) or final_state:failed or Traceback) -"is deprecated"', h=10,
+               'kubernetes.namespace_name:airflow (level:in(warning,error,critical) or final_state:failed or Traceback) -"is deprecated" -"use of fork()" -remote_log_handler_unavailable', h=10,
                desc="Airflow logs JSON, so task lines carry dag_id, task_id and run_id fields; add e.g. dag_id:test_health_check to the query in Explore to narrow it down.")
